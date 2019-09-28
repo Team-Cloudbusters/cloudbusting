@@ -23,6 +23,7 @@ def rle_to_mask(rle, shape):
     offsets = rle[::2]
     lengths = rle[1::2]
 
+    #start with transposed array
     mask = np.zeros(shape[::-1], dtype=bool)
     mask_flat = mask.ravel()
 
