@@ -21,6 +21,7 @@ setuptools.setup(
     install_requires=install_requirements,
     classifiers=[
         "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: MIT License",
         "Intended Audience :: Science/Research",
         #"Operating System :: OS Independent",
     ],
