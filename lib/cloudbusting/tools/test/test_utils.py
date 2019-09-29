@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.testing import assert_array_equal
 
-from cloudbusting.utils import rle_to_mask
+from cloudbusting.tools import *
 
 
 def test_rle_to_mask():

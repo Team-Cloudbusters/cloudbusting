@@ -4,6 +4,8 @@ import logging
 import numpy as np
 import pandas as pd
 
+__all__ = ['rle_to_mask']
+
 def get_train_mask(image_id, cloud_type, dir_data):
 
     logger = logging.getLogger(__name__)
