@@ -2,6 +2,14 @@ import pandas as pd
 from collections.abc import Sequence
 from pathlib import Path
 
+import numpy as np
+from skimage.io import imread
+
+import matplotlib.pyplot as plt
+from matplotlib.patches import Polygon
+
+from ..tools import rle_to_mask, mask_to_paths
+
 __all__ = ['TrainImageList']
 
 class ImageList(Sequence):
@@ -59,6 +67,8 @@ class TrainImageList(ImageList):
         labels = df['EncodedPixels']
         labels.name = 'encoded_pixels'
         labels.index = idx
+        labels.loc[labels.isnull()] = ''
+        labels = labels.apply(lambda x: [int(i) for i in x.split()])
 
         self.labels = labels
 
@@ -66,5 +76,72 @@ class TrainImageList(ImageList):
 class Image(object):
 
     def __init__(self, file, labels=None):
+        file = Path(file)
         self.file = file
+        self.name = file.stem
+
+        self._data = None #lazy load
+
+        #convert pandas series to dict
+        if isinstance(labels, pd.Series):
+            labels = labels.to_dict()
         self.labels = labels
+
+
+    @property
+    def data(self):
+        if self._data is None:
+            data = imread(self.file)
+            self._data = data
+        else:
+            data = self._data
+        return data
+
+    @property
+    def shape(self):
+        return self.data.shape[:2]
+
+    def _plot_label(self, ax, cloud_type):
+        encoding = self.labels[cloud_type]
+        mask = rle_to_mask(encoding, self.shape)
+        paths = mask_to_paths(mask)
+
+        colors = {
+                'Fish': 'tab:blue',
+                'Flower': 'tab:orange',
+                'Gravel': 'tab:green',
+                'Sugar': 'tab:red',
+                }
+        color = colors[cloud_type]
+
+        for path in paths:
+            # swap x,y
+            path = path[:,::-1]
+            patch = Polygon(path, closed=True, facecolor='none',
+                    edgecolor=color)
+            ax.add_patch(patch)
+
+        #add text label to approx top left corner
+        if np.sum(mask):
+            x0 = np.argmax(np.max(mask, axis=0))
+            y0 = np.argmax(mask[:,x0])
+
+            t = ax.text(x0+10, y0+10, cloud_type, color=color,
+                    va='top', ha='left', backgroundcolor='#ffffffaa')
+            t._bbox_patch.set_boxstyle('Square, pad=0.0')
+
+
+
+
+    def plot(self, ax=None):
+        if ax is None:
+            _, ax = plt.subplots()
+
+        ax.imshow(self.data)
+        ax.set_title(self.name)
+
+        if self.labels is not None:
+            for cloud_type in ['Fish', 'Flower', 'Gravel', 'Sugar']:
+                self._plot_label(ax, cloud_type)
+
+        return ax

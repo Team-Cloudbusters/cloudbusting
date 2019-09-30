@@ -3,31 +3,9 @@ import logging
 
 import numpy as np
 import pandas as pd
+from skimage.measure import find_contours, approximate_polygon
 
-__all__ = ['rle_to_mask']
-
-def get_train_mask(image_id, cloud_type, dir_data):
-
-    logger = logging.getLogger(__name__)
-
-    dir_data = Path(dir_data)
-
-    file = dir_data / 'train.csv'
-
-    df = pd.read_csv(file, index_col='Image_Label')
-
-    idx = '{}.jpg_{}'.format(image_id, cloud_type)
-    rle = df.loc[idx,'EncodedPixels']
-
-    if isinstance(rle, str):
-        rle = [int(i) for i in rle.split()]
-    else: #i.e. is NaN
-        rle = []
-
-    shape = (1400, 2100)
-    mask = rle_to_mask(rle, shape)
-
-    return mask
+__all__ = ['rle_to_mask', 'mask_to_paths']
 
 
 def rle_to_mask(rle, shape):
@@ -63,3 +41,22 @@ def rle_to_mask(rle, shape):
     mask = mask.T
 
     return mask
+
+
+def mask_to_paths(mask):
+    # mask with zeros
+    n_y, n_x = mask.shape
+    new_shape = (n_y + 2, n_x + 2)
+    mask_padded = np.zeros(new_shape, dtype=mask.dtype)
+    mask_padded[1:-1,1:-1] = mask
+
+    paths = find_contours(mask_padded, 0.5)
+
+    approx_paths = []
+    for path in paths:
+        path = approximate_polygon(path, 0.25)
+        path = np.array(path) - 1 #remove effect of padding
+        approx_paths.append(path)
+
+    return approx_paths
+
