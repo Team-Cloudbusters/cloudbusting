@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
 
+from get_train_info import get_class_per_image
+
 def plot_class_per_image_hist(df_train):
     """
     Function that plots histograms of label patterns & number of labels
@@ -18,7 +20,6 @@ def plot_class_per_image_hist(df_train):
                         2) histogram of number of labels per image_id
 
     """
-    from get_train_info import get_class_per_image
 
     # Get the Data Frame with the cloud labels identified per image_id (in the
     # training images)
