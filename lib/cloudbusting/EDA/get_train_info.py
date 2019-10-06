@@ -16,15 +16,16 @@ def get_class_per_image(arr):
 
     Returns
     -------
-    number_per_image_id : dict
-        Data dictionary with the number of entries per image_id.
+    number_per_image_id : DataFrame
+        Data Frame with the cloud labels identified per image_id (in the training
+        images).
 
     Examples
     --------
     >>> arr = pd.DataFrame({'A': ["001.jpg_Fish", "001.jpg_Sugar", "002.jpg_Flower"]})
     >>> get_class_per_image(arr.A)
               cloud_label
-    image_id             
+    image_id
     001       Fish, Sugar
     002            Flower
 
@@ -54,8 +55,8 @@ def get_number_per_class_label(arr):
 
     Returns
     -------
-    number_per_labels : dict
-        Data dictionary with the total number of images per (cloud) class labels.
+    number_per_labels : Counter
+        A Counter object with the total number of images per (cloud) class labels.
 
     Examples
     --------
