@@ -68,12 +68,13 @@ class TrainImageList(ImageList):
         labels.name = 'encoded_pixels'
         labels.index = idx
         labels.loc[labels.isnull()] = ''
-        labels = labels.apply(lambda x: [int(i) for i in x.split()])
 
         self.labels = labels
 
 
 class Image(object):
+
+    cloud_types = ('Fish', 'Flower', 'Gravel', 'Sugar')
 
     def __init__(self, file, labels=None):
         file = Path(file)
@@ -81,10 +82,14 @@ class Image(object):
         self.name = file.stem
 
         self._data = None #lazy load
+        self._masks = None #create when needed
 
         #convert pandas series to dict
         if isinstance(labels, pd.Series):
             labels = labels.to_dict()
+        if labels is not None:
+            for k, v in labels.items():
+                labels[k] = [int(i) for i in v.split()]
         self.labels = labels
 
 
@@ -97,40 +102,66 @@ class Image(object):
             data = self._data
         return data
 
+
     @property
     def shape(self):
         return self.data.shape[:2]
 
-    def _plot_label(self, ax, cloud_type):
-        encoding = self.labels[cloud_type]
-        mask = rle_to_mask(encoding, self.shape)
-        paths = mask_to_paths(mask)
 
+    @property
+    def masks(self):
+        if self.labels is None:
+            masks = self._masks
+
+        if self._masks is None:
+            shape = self.shape + (len(self.cloud_types),)
+            masks = np.zeros(shape, dtype=bool)
+
+            for i, cloud_type in enumerate(self.cloud_types):
+                encoding = self.labels[cloud_type]
+                masks[:,:,i] = rle_to_mask(encoding, self.shape)
+
+            self._masks = masks
+
+        else:
+            masks = self._masks
+
+        return masks
+
+
+    def _plot_masks(self, ax):
         colors = {
                 'Fish': 'tab:blue',
                 'Flower': 'tab:orange',
                 'Gravel': 'tab:green',
                 'Sugar': 'tab:red',
                 }
-        color = colors[cloud_type]
 
-        for path in paths:
-            # swap x,y
-            path = path[:,::-1]
-            patch = Polygon(path, closed=True, facecolor='none',
-                    edgecolor=color)
-            ax.add_patch(patch)
+        masks = self.masks
+        if masks is None: #do nothing
+            return
 
-        #add text label to approx top left corner
-        if np.sum(mask):
-            x0 = np.argmax(np.max(mask, axis=0))
-            y0 = np.argmax(mask[:,x0])
+        for i, cloud_type in enumerate(self.cloud_types):
+            mask = masks[:,:,i]
+            paths = mask_to_paths(mask)
 
-            t = ax.text(x0+10, y0+10, cloud_type, color=color,
-                    va='top', ha='left', backgroundcolor='#ffffffaa')
-            t._bbox_patch.set_boxstyle('Square, pad=0.0')
+            color = colors[cloud_type]
 
+            for path in paths:
+                # swap x,y
+                path = path[:,::-1]
+                patch = Polygon(path, closed=True, facecolor='none',
+                        edgecolor=color)
+                ax.add_patch(patch)
 
+            #add text label to approx top left corner
+            if np.sum(mask):
+                x0 = np.argmax(np.max(mask, axis=0))
+                y0 = np.argmax(mask[:,x0])
+
+                t = ax.text(x0+10, y0+10, cloud_type, color=color,
+                        va='top', ha='left', backgroundcolor='#ffffffaa')
+                t._bbox_patch.set_boxstyle('Square, pad=0.0')
 
 
     def plot(self, ax=None):
@@ -140,8 +171,6 @@ class Image(object):
         ax.imshow(self.data)
         ax.set_title(self.name)
 
-        if self.labels is not None:
-            for cloud_type in ['Fish', 'Flower', 'Gravel', 'Sugar']:
-                self._plot_label(ax, cloud_type)
+        self._plot_masks(ax)
 
         return ax
