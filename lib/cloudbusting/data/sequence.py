@@ -38,7 +38,10 @@ class ImageSequence(Sequence):
 
         self.images = self._get_images()
         self.labels = self._get_labels()
-        self.classes = tuple(self.labels.index.unique(level=1).to_list())
+        if self.labels is not None:
+            self.classes = tuple(self.labels.index.unique(level=1).to_list())
+        else:
+            self.classes = None
         self.transform = self._get_transform()
 
         self.index = np.arange(len(self.images))
@@ -86,9 +89,12 @@ class ImageSequence(Sequence):
         i_r = (i+1) * self.batch_size
         idx = self.index[i_l:i_r]
 
-        X, Y = self._generate_data(idx)
-
-        return X, Y
+        if self.sample == 'train':
+            X, Y = self._generate_train_data(idx)
+            return X, Y
+        elif self.sample == 'test':
+            X = self._generate_test_data(idx)
+            return X, None
 
 
     def on_epoch_end(self):
@@ -96,8 +102,7 @@ class ImageSequence(Sequence):
             np.random.shuffle(self.index)
 
 
-    def _generate_data(self, idx):
-
+    def _generate_train_data(self, idx):
         files = self.images[idx]
         n_images = len(files)
         n_y_image, n_x_image = self.image_shape
@@ -130,8 +135,29 @@ class ImageSequence(Sequence):
         return images, masks
 
 
+    def _generate_test_data(self, idx):
+        files = self.images[idx]
+        n_images = len(files)
+        n_y_image, n_x_image = self.image_shape
+
+        images = np.zeros([n_images, n_y_image, n_x_image, 3],
+                    dtype=np.uint8)
+
+        for i, file in enumerate(files):
+            image, _ = self._load_data(file)
+
+            out = self.transform(image=image)
+
+            images[i] = out['image']
+
+        return images
+
+
     def _load_data(self, file):
         image = imread(file)
+
+        if self.sample == 'test':
+            return image, None
 
         image_name = file.stem
 
