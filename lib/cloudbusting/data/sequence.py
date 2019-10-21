@@ -1,4 +1,5 @@
 from pathlib import Path
+import random
 
 import numpy as np
 import pandas as pd
@@ -15,9 +16,10 @@ from ..tools import rle_to_mask
 class ImageSequence(Sequence):
 
     def __init__(self, data_dir, image_shape=(1400, 2100), sample='train',
-            batch_size=1, mask_downsample_factor=1, shuffle=True):
-        if sample not in ['train', 'test']:
-            msg = "sample argument must be either 'train' or 'test'"
+            batch_size=1, val_fraction=0.2, mask_downsample_factor=1,
+            shuffle=True, seed=None):
+        if sample not in ['train', 'val', 'test']:
+            msg = "sample argument must be either 'train', 'val' or 'test'"
             raise Exception(msg)
 
         self.data_dir = Path(data_dir)
@@ -35,6 +37,7 @@ class ImageSequence(Sequence):
             raise Exception(msg)
 
         self.shuffle = shuffle
+        self.random_state = np.random.RandomState(seed)
 
         self.images = self._get_images()
         self.labels = self._get_labels()
@@ -44,14 +47,14 @@ class ImageSequence(Sequence):
             self.classes = None
         self.transform = self._get_transform()
 
-        self.index = np.arange(len(self.images))
+        self.set_index(val_fraction)
         self.on_epoch_end()
 
     def _get_images(self):
-        if self.sample == 'train':
-            image_dir = self.data_dir / 'train_images'
-        elif self.sample == 'test':
+        if self.sample == 'test':
             image_dir = self.data_dir / 'test_images'
+        else:
+            image_dir = self.data_dir / 'train_images'
 
         files = sorted(image_dir.glob('*.jpg'))
         files = np.array(files)
@@ -62,8 +65,6 @@ class ImageSequence(Sequence):
     def _get_labels(self):
         if self.sample == 'test':
             return None
-
-        #else sample == 'train'
 
         label_file = self.data_dir / 'train.csv'
         df = pd.read_csv(label_file)
@@ -89,17 +90,36 @@ class ImageSequence(Sequence):
         i_r = (i+1) * self.batch_size
         idx = self.index[i_l:i_r]
 
-        if self.sample == 'train':
-            X, Y = self._generate_train_data(idx)
-            return X, Y
-        elif self.sample == 'test':
+        if self.sample == 'test':
             X = self._generate_test_data(idx)
             return X, None
 
+        else:
+            X, Y = self._generate_train_data(idx)
+            return X, Y
+
+
+    def set_index(self, val_fraction):
+
+        index = np.arange(len(self.images))
+
+        if self.sample == 'train':
+            self.random_state.shuffle(index)
+            i_split = int((1 - val_fraction) * index.size)
+            index = index[:i_split]
+            index = np.sort(index)
+
+        elif self.sample == 'val':
+            self.random_state.shuffle(index)
+            i_split = int((1 - val_fraction) * index.size)
+            index = index[i_split:]
+            index = np.sort(index)
+
+        self.index = index
 
     def on_epoch_end(self):
         if self.shuffle:
-            np.random.shuffle(self.index)
+            self.random_state.shuffle(self.index)
 
 
     def _generate_train_data(self, idx):
@@ -116,11 +136,14 @@ class ImageSequence(Sequence):
         masks = np.zeros([n_images, n_y_mask, n_x_mask, n_classes],
                     dtype=bool)
 
+        #seed for augmentation
+        random.seed(self.random_state.rand())
         for i, file in enumerate(files):
             image, mask = self._load_data(file)
 
             #apply augmentations
             mask = mask.astype(np.uint8) #needed for opencv
+
             out = self.transform(image=image, mask=mask)
 
             mask = out['mask']
