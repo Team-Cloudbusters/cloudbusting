@@ -34,3 +34,32 @@ def test_rle_to_mask():
     expected[:,2] = True
 
     assert_array_equal(out, expected)
+
+
+def test_mask_to_rle():
+    #test1: null case
+    mask = np.zeros([5,6], dtype=bool)
+
+    out = mask_to_rle(mask)
+    expected = []
+
+    assert_array_equal(out, expected)
+
+    #test2
+    mask = np.zeros([5,6], dtype=bool)
+    mask[:3,0] = True
+
+    out = mask_to_rle(mask)
+    expected = [1, 3]
+
+    assert_array_equal(out, expected)
+
+    #test3
+    mask = np.zeros([5,6], dtype=bool)
+    mask[:3,0] = True
+    mask[:,2] = True
+
+    out = mask_to_rle(mask)
+    expected = [1, 3, 11, 5]
+
+    assert_array_equal(out, expected)

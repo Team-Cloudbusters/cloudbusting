@@ -1,11 +1,10 @@
 from pathlib import Path
-import logging
 
 import numpy as np
 import pandas as pd
 from skimage.measure import find_contours, approximate_polygon
 
-__all__ = ['rle_to_mask', 'mask_to_paths']
+__all__ = ['rle_to_mask', 'mask_to_rle', 'mask_to_paths']
 
 
 def rle_to_mask(rle, shape):
@@ -41,6 +40,29 @@ def rle_to_mask(rle, shape):
     mask = mask.T
 
     return mask
+
+
+def mask_to_rle(mask):
+    """Convert binary mask into run length encoded sequence
+
+    Parameters
+    ----------
+    mask : np.array <bool>
+        binary mask
+
+    Returns
+    -------
+    list of int
+
+    """
+    indices = np.where(mask.T.flatten()==1)[0]
+    rle = []
+    prev = -2
+    for idx in indices:
+        if (idx>prev+1): rle.extend((idx+1, 0))
+        rle[-1] += 1
+        prev = idx
+    return rle
 
 
 def mask_to_paths(mask):
